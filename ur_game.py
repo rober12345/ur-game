@@ -6,13 +6,18 @@ import sys
 import os
 import random
 
+# --------------------------------------------------
+# CONSTANTS
+# --------------------------------------------------
+TILE_SIZE = 40
+DICE_MIN = 1
+DICE_MAX = 6
 
 # --------------------------------------------------
 # PATH HANDLING
 # --------------------------------------------------
 def resource_path(relative):
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative)
-
 
 # --------------------------------------------------
 # MAIN GAME CLASS
@@ -46,15 +51,15 @@ class UrGame(QMainWindow):
 
         # BOARD TILES (QLabel)
         self.board_tiles = []
-        i = 0
+        index = 0
         while True:
-            tile = getattr(self, f"tile_{i}", None)
+            tile = getattr(self, f"tile_{index}", None)
             if tile is None:
                 break
 
             tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
             tile.setScaledContents(True)
-            tile.clear()  # REMOVE DESIGNER TEXT
+            tile.clear()
 
             tile.setStyleSheet("""
                 QLabel {
@@ -64,7 +69,7 @@ class UrGame(QMainWindow):
             """)
 
             self.board_tiles.append(tile)
-            i += 1
+            index += 1
 
         self.board_size = len(self.board_tiles)
         if self.board_size == 0:
@@ -79,6 +84,7 @@ class UrGame(QMainWindow):
     def start_game(self):
         self.positions = {1: 0, 2: 0}
         self.current_player = 1
+        self.last_roll = 0
         self.statusLabel.setText("Player 1 turn")
         self.diceLabel.setText("Roll the dice")
         self.update_board()
@@ -91,18 +97,14 @@ class UrGame(QMainWindow):
         self.stackedWidget.setCurrentWidget(self.StartPage)
 
     # --------------------------------------------------
-    # GAME LOGIC
+    # GAME LOGIC — REAL DICE (1–6)
     # --------------------------------------------------
     def roll_dice(self):
-        self.last_roll = sum(random.choice([0, 1]) for _ in range(4))
-        self.diceLabel.setText(f"Dice Roll: {self.last_roll}")
-
-        if self.last_roll == 0:
-            self.switch_player()
-        else:
-            self.statusLabel.setText(
-                f"Player {self.current_player} rolled {self.last_roll}"
-            )
+        self.last_roll = random.randint(DICE_MIN, DICE_MAX)
+        self.diceLabel.setText(f"🎲 Dice Roll: {self.last_roll}")
+        self.statusLabel.setText(
+            f"Player {self.current_player} rolled {self.last_roll}"
+        )
 
     def move_piece(self):
         if self.last_roll == 0:
@@ -124,30 +126,52 @@ class UrGame(QMainWindow):
         self.statusLabel.setText(f"Player {self.current_player} turn")
 
     # --------------------------------------------------
-    # BOARD RENDER — QLabel + PIXMAP
+    # BOARD RENDER — IMAGES ONLY
     # --------------------------------------------------
     def update_board(self):
-        # CLEAR ALL TILES
         for tile in self.board_tiles:
             tile.clear()
 
-        # DRAW HORSES
         for player, pos in self.positions.items():
             if 0 <= pos < self.board_size:
                 pixmap = self.horses[player].scaled(
-                    40, 40,
+                    TILE_SIZE,
+                    TILE_SIZE,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation
                 )
                 self.board_tiles[pos].setPixmap(pixmap)
 
     # --------------------------------------------------
-    # END GAME
+    # END GAME — IMAGE + TEXT
     # --------------------------------------------------
     def end_game(self, winner):
-        self.winnerLabel.setText(f"🏆 Player {winner} Wins!")
-        self.stackedWidget.setCurrentWidget(self.ResultPage)
+        horse_image = (
+            "src/assets/horse_white.png"
+            if winner == 1
+            else "src/assets/horse_blue.png"
+        )
 
+        img_path = resource_path(horse_image).replace("\\", "/")
+
+        html = f"""
+        <div style="
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:16px;
+            font-size:24px;
+            font-weight:bold;
+        ">
+            <img src="{img_path}" width="70" height="70">
+            <span>🏆 Player {winner} Wins!</span>
+        </div>
+        """
+
+        self.winnerLabel.setTextFormat(Qt.TextFormat.RichText)
+        self.winnerLabel.setText(html)
+        self.winnerLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stackedWidget.setCurrentWidget(self.ResultPage)
 
 # --------------------------------------------------
 # RUN APP
